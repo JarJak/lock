@@ -295,8 +295,8 @@ class RedisStore implements SharedLockStoreInterface
             }
         }
 
-        if ($this->redis->getConnection() instanceof \Predis\Connection\Cluster\ClusterInterface) {
-            foreach ($this->redis as $connection) {
+        if ($this->redis->getConnection() instanceof \Predis\Connection\Cluster\ClusterInterface && $this->redis->getConnection()->count() > 0) {
+            foreach ($this->redis->getConnection() as $connection) {
                 $this->handlePredisError(fn () => $connection->script('LOAD', $script));
             }
         } else {
