@@ -296,16 +296,18 @@ class RedisStore implements SharedLockStoreInterface
         }
 
         if ($this->redis->getConnection() instanceof \Predis\Connection\Cluster\ClusterInterface) {
-			// fixes "NOSCRIPT No matching script. Please use EVAL." error. See https://github.com/symfony/symfony/issues/59686
-			if ($this->redis->getConnection()->getIterator()->count() > 0) {
-	            foreach ($this->redis->getConnection()->getIterator() as $connection) {
-	                $this->handlePredisError(fn () => $connection->script('LOAD', $script));
-	            }
-			} else {
+			if ($this->redis->getConnection()->getIterator()->count() === 0) {
+				// not getIterator this error can be thrown: "ERR This instance has cluster support disabled"
+				// however it is being silenced and method returns an empty ArrayIterator instead.
 				// fallback to EVAL because EVALSHA is not possible to run in Cluster mode with a single connection.
 				// fixed bug introduced with https://github.com/symfony/lock/commit/1de2c40091ef638cea7f6235745297e2faa3dd76
 				// fixes "Cannot use 'SCRIPT' with redis-cluster" error. See https://github.com/symfony/symfony/issues/59795#issuecomment-3094849646
 				return $this->handlePredisError(fn () => $this->redis->eval($script, array_merge([$resource], $args), 1));
+			} else {
+			    // fixes "NOSCRIPT No matching script. Please use EVAL." error. See https://github.com/symfony/symfony/issues/59686
+	            foreach ($this->redis->getConnection()->getIterator() as $connection) {
+	                $this->handlePredisError(fn () => $connection->script('LOAD', $script));
+	            }
 			}
         } else {
             $this->handlePredisError(fn () => $this->redis->script('LOAD', $script));
